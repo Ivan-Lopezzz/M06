@@ -16,6 +16,11 @@ class RosterController extends Controller
         $roster = $store->all();
         $title = $store->title();
 
+        // If title is empty string, default to "Semana sin título" for display
+        if ($title === '') {
+            $title = 'Semana sin título';
+        }
+
         // Convert employee IDs to employee objects for display
         $displayRoster = [];
         foreach ($roster as $day => $shifts) {

@@ -32,7 +32,7 @@
                         <td class="fw-bold">{{ ucfirst($shift) }}</td>
                         @foreach (\App\Data\Shifts::DAYS as $day)
                             <td class="align-middle">
-                                <x-shift-cell :day="$day" :shift="$shift" :employee="$roster[$day][$shift] ?? null" />
+                                <x-shift-cell :day="$day" :shift="$shift" :employee="$displayRoster[$day][$shift] ?? null" />
                             </td>
                         @endforeach
                     </tr>
