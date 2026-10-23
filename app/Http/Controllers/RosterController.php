@@ -37,7 +37,7 @@ class RosterController extends Controller
     {
         $validated = $request->validated();
 
-        $store->assign($validated['day'], $validated['shift'], $validated['employee_id']);
+        $store->assign($validated['day'], $validated['shift'], (int) $validated['employee_id']);
 
         return redirect()->route('roster.index')->with('status', 'Turno asignado correctamente');
     }

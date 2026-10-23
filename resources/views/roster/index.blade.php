@@ -1,17 +1,14 @@
-{{--
-    La rejilla 7 × 3 del cuadrante, ya hecha: no es un ejercicio de diseño.
+@extends('layouts.app')
 
-    Le falta el marco: hazla heredar de TU layout con @extends y ponla dentro
-    de un @section. El formulario y el botón de quitar envían a
-    roster.assign y roster.remove, con los campos day, shift y employee_id.
---}}
+@section('title', 'Cuadrante')
 
+@section('content')
     {{-- El título es texto libre y se vuelve a mostrar: {{ }}, NUNCA {!! !!}. --}}
     <h1>{{ $title ?? 'Semana sin título' }}</h1>
 
     @if ($errors->any())
-        <div class="errors">
-            <ul>
+        <div class="alert alert-danger">
+            <ul class="mb-0">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -19,49 +16,72 @@
         </div>
     @endif
 
-    <div class="rejilla">
-        <div></div>
-        @foreach (\App\Data\Shifts::DAYS as $day)
-            <div class="cab">{{ $day }}</div>
-        @endforeach
-
-        @foreach (\App\Data\Shifts::names() as $shift)
-            <div class="turno">{{ $shift }}</div>
-
-            @foreach (\App\Data\Shifts::DAYS as $day)
-                <x-shift-cell :day="$day" :shift="$shift" :employee="$roster[$day][$shift] ?? null" />
-            @endforeach
-        @endforeach
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Turno</th>
+                    @foreach (\App\Data\Shifts::DAYS as $day)
+                        <th>{{ ucfirst($day) }}</th>
+                    @endforeach
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (\App\Data\Shifts::names() as $shift)
+                    <tr>
+                        <td class="fw-bold">{{ ucfirst($shift) }}</td>
+                        @foreach (\App\Data\Shifts::DAYS as $day)
+                            <td class="align-middle">
+                                <x-shift-cell :day="$day" :shift="$shift" :employee="$roster[$day][$shift] ?? null" />
+                            </td>
+                        @endforeach
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </div>
 
     {{-- F03/F04 · Asignar. La validación vive en el Form Request. --}}
-    <form method="POST" action="{{ route('roster.assign') }}" class="asignar">
-        @csrf
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Asignar Turno</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ route('roster.assign') }}" class="row g-3">
+                @csrf
 
-        <label>Día
-            <select name="day">
-                @foreach (\App\Data\Shifts::DAYS as $day)
-                    <option value="{{ $day }}" @selected(old('day') === $day)>{{ $day }}</option>
-                @endforeach
-            </select>
-        </label>
+                <div class="col-md-4">
+                    <label for="day" class="form-label">Día</label>
+                    <select name="day" id="day" class="form-select">
+                        @foreach (\App\Data\Shifts::DAYS as $day)
+                            <option value="{{ $day }}" @selected(old('day') === $day)>{{ ucfirst($day) }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-        <label>Turno
-            <select name="shift">
-                @foreach (\App\Data\Shifts::names() as $shift)
-                    <option value="{{ $shift }}" @selected(old('shift') === $shift)>{{ $shift }}</option>
-                @endforeach
-            </select>
-        </label>
+                <div class="col-md-4">
+                    <label for="shift" class="form-label">Turno</label>
+                    <select name="shift" id="shift" class="form-select">
+                        @foreach (\App\Data\Shifts::names() as $shift)
+                            <option value="{{ $shift }}" @selected(old('shift') === $shift)>{{ ucfirst($shift) }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-        <label>Empleado
-            <select name="employee_id">
-                @foreach (\App\Data\Staff::all() as $employee)
-                    <option value="{{ $employee->id }}" @selected((int) old('employee_id') === $employee->id)>{{ $employee->name }}</option>
-                @endforeach
-            </select>
-        </label>
+                <div class="col-md-4">
+                    <label for="employee_id" class="form-label">Empleado</label>
+                    <select name="employee_id" id="employee_id" class="form-select">
+                        @foreach (\App\Data\Staff::all() as $employee)
+                            <option value="{{ $employee->id }}" @selected((int) old('employee_id') === $employee->id)>{{ $employee->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
 
-        <button class="primario">Asignar</button>
-    </form>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Asignar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
 

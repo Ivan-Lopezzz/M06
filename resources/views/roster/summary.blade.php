@@ -5,8 +5,10 @@
 @section('content')
     <h1>Resumen del Cuadrante</h1>
 
-    <div class="summary">
-        <!-- Summary content would go here -->
-        <p>Este es el resumen del cuadrante actual.</p>
+    <div class="card">
+        <div class="card-body">
+            <p>Este es el resumen del cuadrante actual.</p>
+            <!-- Summary content would go here -->
+        </div>
     </div>
 @endsection

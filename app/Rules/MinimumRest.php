@@ -34,8 +34,11 @@ final class MinimumRest implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        // Convert the employee ID to integer (in case it's still a string)
+        $employeeId = (int) $value;
+
         // Get all existing shifts for this employee
-        $employeeShifts = $this->store->forEmployee($value);
+        $employeeShifts = $this->store->forEmployee($employeeId);
 
         if (empty($employeeShifts)) {
             return; // No previous shifts, so minimum rest is satisfied

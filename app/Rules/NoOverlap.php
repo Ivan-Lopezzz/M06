@@ -25,8 +25,11 @@ final class NoOverlap implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
+        // Convert the employee ID to integer (in case it's still a string)
+        $employeeId = (int) $value;
+
         // Get all existing shifts for this employee
-        $employeeShifts = $this->store->forEmployee($value);
+        $employeeShifts = $this->store->forEmployee($employeeId);
 
         // Check if the employee already has a shift on the same day
         foreach ($employeeShifts as $empShift) {

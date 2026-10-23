@@ -11,11 +11,11 @@
         <p class="nom">{{ $employee->name }}</p>
         <p class="rol">{{ $employee->role }}</p>
 
-        <form method="POST" action="{{ route('roster.remove') }}">
+        <form method="POST" action="{{ route('roster.remove') }}" style="margin-top: 10px;">
             @csrf
             <input type="hidden" name="day" value="{{ $day }}">
             <input type="hidden" name="shift" value="{{ $shift }}">
-            <button>Quitar</button>
+            <button type="submit" class="btn btn-sm btn-outline-danger">Quitar</button>
         </form>
     @else
         <p class="vacia">—</p>
