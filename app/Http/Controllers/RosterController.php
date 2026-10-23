@@ -56,83 +56,72 @@ class RosterController extends Controller
 
     public function summary(RosterStore $store)
     {
-        // This method would be used for the summary page
-        return view('roster.summary', ['store' => $store]);
-    }
+        // Calculate summary data
+        $roster = $store->all();
 
-    private function hasMinimumRest(RosterStore $store, int $employeeId, string $day, string $shift): bool
-    {
-        // Get all existing shifts for this employee
-        $employeeShifts = $store->forEmployee($employeeId);
+        // Get all employees
+        $employees = Staff::all();
 
-        // If no previous shifts, then it's valid
-        if (empty($employeeShifts)) {
-            return true;
-        }
+        // Initialize summary data
+        $employeeHours = [];
+        $shiftCounts = [];
+        $emptyDays = [];
 
-        // Find the most recent shift for this employee
-        $mostRecentShift = null;
-        $maxDayIndex = -1;
-
-        foreach ($employeeShifts as $empShift) {
-            $dayIndex = Shifts::dayIndex($empShift['day']);
-            if ($dayIndex > $maxDayIndex) {
-                $maxDayIndex = $dayIndex;
-                $mostRecentShift = $empShift;
+        // Initialize shift counts for each day and shift
+        foreach (Shifts::DAYS as $day) {
+            foreach (Shifts::names() as $shift) {
+                $shiftCounts[$day][$shift] = 0;
             }
         }
 
-        // If no previous shift found, it's valid
-        if ($mostRecentShift === null) {
-            return true;
-        }
-
-        // Get the day indices
-        $prevDayIndex = Shifts::dayIndex($mostRecentShift['day']);
-        $currentDayIndex = Shifts::dayIndex($day);
-
-        // If same day, it's already prevented by earlier check
-        if ($prevDayIndex === $currentDayIndex) {
-            return true;
-        }
-
-        // Check if we're going forward in time (current day is after previous day)
-        if ($currentDayIndex > $prevDayIndex) {
-            // Calculate the hours of rest between shifts
-
-            // Get shift start times in minutes
-            $shiftStartTimes = [
-                'manana' => 6 * 60,  // 06:00 = 360 minutes
-                'tarde' => 14 * 60,  // 14:00 = 840 minutes
-                'noche' => 22 * 60   // 22:00 = 1320 minutes
-            ];
-
-            $prevShiftEndTime = $shiftStartTimes[$mostRecentShift['shift']] + Shifts::hours($mostRecentShift['shift']) * 60;
-            $currentShiftStartTime = $shiftStartTimes[$shift] ;
-
-            // Calculate hours between shifts
-            if ($currentDayIndex === $prevDayIndex + 1) {
-                // Same day difference - calculate from end of previous shift to start of current shift
-                $hoursOfRest = (24 * 60 - $prevShiftEndTime) + $currentShiftStartTime;
-
-                // Check for illegal transitions
-                $illegalTransitions = [
-                    ['tarde', 'manana'],  // 8h gap
-                    ['noche', 'manana'],  // 0h gap
-                    ['noche', 'tarde']    // 8h gap
-                ];
-
-                foreach ($illegalTransitions as $transition) {
-                    if ($mostRecentShift['shift'] === $transition[0] && $shift === $transition[1]) {
-                        return false;
+        // Process roster to calculate data
+        foreach ($roster as $day => $shifts) {
+            foreach ($shifts as $shift => $employeeId) {
+                if ($employeeId !== null) {
+                    // Count shifts per employee
+                    if (!isset($employeeHours[$employeeId])) {
+                        $employeeHours[$employeeId] = 0;
                     }
-                }
+                    $employeeHours[$employeeId] += Shifts::hours($shift);
 
-                return $hoursOfRest >= 12 * 60; // 12 hours in minutes
+                    // Count shifts by shift type
+                    $shiftCounts[$day][$shift]++;
+                } else {
+                    // Track empty days (no assignments)
+                    if (!isset($emptyDays[$day])) {
+                        $emptyDays[$day] = 0;
+                    }
+                    $emptyDays[$day]++;
+                }
             }
         }
 
-        // For non-consecutive days or other cases, assume minimum rest is maintained
-        return true;
+        // Check for warnings
+        $warnings = [];
+
+        // Check for shifts without employees
+        foreach ($shiftCounts as $day => $shifts) {
+            foreach ($shifts as $shift => $count) {
+                if ($count === 0) {
+                    $warnings[] = "No hay responsable asignado al turno {$shift} del día {$day}";
+                }
+            }
+        }
+
+        // Check for employees exceeding contract hours
+        foreach ($employees as $employee) {
+            if (isset($employeeHours[$employee->id]) && $employeeHours[$employee->id] > $employee->contractHours) {
+                $warnings[] = "El empleado {$employee->name} excede las horas de contrato ({$employeeHours[$employee->id]} > {$employee->contractHours})";
+            }
+        }
+
+        // Check for days with no assignments
+        foreach ($emptyDays as $day => $count) {
+            if ($count === count(Shifts::names())) {  // All shifts are empty
+                $warnings[] = "No hay asignaciones para el día {$day}";
+            }
+        }
+
+        return view('roster.summary', compact('store', 'employeeHours', 'shiftCounts', 'warnings'));
     }
 }

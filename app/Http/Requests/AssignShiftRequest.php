@@ -78,4 +78,15 @@ final class AssignShiftRequest extends FormRequest
             'employee_id.min' => 'El empleado debe tener un ID mayor que 0.',
         ];
     }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation()
+    {
+        // Ensure employee_id is always an integer
+        if ($this->has('employee_id')) {
+            $this->merge(['employee_id' => (int) $this->employee_id]);
+        }
+    }
 }
