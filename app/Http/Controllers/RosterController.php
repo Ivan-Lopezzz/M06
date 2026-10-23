@@ -35,7 +35,10 @@ class RosterController extends Controller
             }
         }
 
-        return view('roster.index', compact('displayRoster', 'title'));
+        // Get candidates if they exist in session
+        $candidates = session('candidate_employees', []);
+
+        return view('roster.index', compact('displayRoster', 'title', 'candidates'));
     }
 
     public function assign(\App\Http\Requests\AssignShiftRequest $request, RosterStore $store)
@@ -128,5 +131,124 @@ class RosterController extends Controller
         }
 
         return view('roster.summary', compact('store', 'employeeHours', 'shiftCounts', 'warnings'));
+    }
+
+    public function candidates(Request $request, RosterStore $store)
+    {
+        $validated = $request->validate([
+            'day' => 'required|in:' . implode(',', Shifts::DAYS),
+            'shift' => 'required|in:' . implode(',', Shifts::names()),
+        ]);
+
+        $day = $validated['day'];
+        $shift = $validated['shift'];
+
+        // Get current roster to check existing assignments
+        $roster = $store->all();
+
+        // Check if this slot is already filled
+        if ($roster[$day][$shift] !== null) {
+            return redirect()->route('roster.index')->with('error', 'Este turno ya está asignado');
+        }
+
+        // Get all employees
+        $employees = Staff::all();
+
+        // Find candidates who can work this shift
+        $candidates = [];
+        foreach ($employees as $employee) {
+            if ($this->canWorkShift($employee, $roster, $day, $shift)) {
+                // Make sure we're storing objects consistently
+                if (is_array($employee)) {
+                    // Convert array to object if needed
+                    $obj = new \stdClass();
+                    foreach ($employee as $key => $value) {
+                        $obj->$key = $value;
+                    }
+                    $candidates[] = $obj;
+                } else {
+                    $candidates[] = clone $employee;
+                }
+            }
+        }
+
+        // Store candidates in session for display along with day and shift info
+        session([
+            'candidate_employees' => $candidates,
+            'candidate_day' => $day,
+            'candidate_shift' => $shift
+        ]);
+
+        return redirect()->route('roster.index')->with('status', 'Candidatos encontrados: ' . count($candidates));
+    }
+
+    public function autoFill(Request $request, RosterStore $store)
+    {
+        $validated = $request->validate([
+            'day' => 'required|in:' . implode(',', Shifts::DAYS),
+            'shift' => 'required|in:' . implode(',', Shifts::names()),
+        ]);
+
+        $day = $validated['day'];
+        $shift = $validated['shift'];
+
+        // Get current roster to check existing assignments
+        $roster = $store->all();
+
+        // Check if this slot is already filled
+        if ($roster[$day][$shift] !== null) {
+            return redirect()->route('roster.index')->with('error', 'Este turno ya está asignado');
+        }
+
+        // Get all employees
+        $employees = Staff::all();
+
+        // Find first available employee who can work this shift
+        $availableEmployee = null;
+        foreach ($employees as $employee) {
+            if ($this->canWorkShift($employee, $roster, $day, $shift)) {
+                $availableEmployee = clone $employee;
+                break;
+            }
+        }
+
+        // If we found an available employee, assign them
+        if ($availableEmployee !== null) {
+            $store->assign($day, $shift, $availableEmployee->id);
+            return redirect()->route('roster.index')->with('status', "Turno asignado a {$availableEmployee->name}");
+        } else {
+            return redirect()->route('roster.index')->with('error', 'No hay empleados disponibles para este turno');
+        }
+    }
+
+    private function canWorkShift($employee, $roster, $day, $shift)
+    {
+        // Check if employee already has a shift on the same day
+        foreach (Shifts::names() as $checkShift) {
+            if ($roster[$day][$checkShift] === $employee->id) {
+                return false; // Employee already has a shift on this day
+            }
+        }
+
+        // Additional overlap checking: check if employee has shifts that would conflict with the new shift
+        foreach (Shifts::DAYS as $checkDay) {
+            foreach (Shifts::names() as $checkShift) {
+                // If employee is assigned to any shift, check for time conflicts
+                if ($roster[$checkDay][$checkShift] === $employee->id) {
+                    // Get the start and end times for both shifts
+                    $currentStart = Shifts::startsAt($checkShift);
+                    $currentEnd = Shifts::endsAt($checkShift);
+                    $newStart = Shifts::startsAt($shift);
+                    $newEnd = Shifts::endsAt($shift);
+
+                    // Check if the shifts overlap
+                    if ($currentStart < $newEnd && $newStart < $currentEnd) {
+                        return false; // Shifts overlap, employee can't work both
+                    }
+                }
+            }
+        }
+
+        return true; // Employee is available for this shift
     }
 }

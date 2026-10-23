@@ -37,3 +37,5 @@ Route::get('/cuadrante', [RosterController::class, 'index'])->name('roster.index
 Route::post('/cuadrante/asignar', [RosterController::class, 'assign'])->name('roster.assign');
 Route::post('/cuadrante/eliminar', [RosterController::class, 'remove'])->name('roster.remove');
 Route::get('/cuadrante/resumen', [RosterController::class, 'summary'])->name('roster.summary');
+Route::post('/cuadrante/autofill', [RosterController::class, 'autoFill'])->name('roster.autofill');
+Route::post('/cuadrante/candidatos', [RosterController::class, 'candidates'])->name('roster.candidates');
