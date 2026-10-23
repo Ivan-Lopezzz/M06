@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Contracts\RosterStore;
+use App\Data\Shifts;
+use App\Data\Staff;
+use App\Rules\EmployeeExists;
 use App\Rules\MinimumRest;
 use App\Rules\NoOverlap;
 use Illuminate\Foundation\Http\FormRequest;
@@ -40,9 +43,21 @@ final class AssignShiftRequest extends FormRequest
         $shift = (string) $this->input('shift');
 
         return [
-            // TODO F04: day y shift, que existan en App\Data\Shifts
+            'day' => [
+                'required',
+                'string',
+                'in:' . implode(',', Shifts::DAYS),
+            ],
+            'shift' => [
+                'required',
+                'string',
+                'in:' . implode(',', Shifts::names()),
+            ],
             'employee_id' => [
-                // TODO F04: que el empleado exista en App\Data\Staff
+                'required',
+                'integer',
+                'min:1',
+                new EmployeeExists(),
                 new NoOverlap($store, $day, $shift),
                 new MinimumRest($store, $day, $shift),
             ],
@@ -58,7 +73,9 @@ final class AssignShiftRequest extends FormRequest
     public function messages(): array
     {
         return [
-            // TODO F04
+            'employee_id.required' => 'El empleado es obligatorio.',
+            'employee_id.integer' => 'El empleado debe ser un número entero.',
+            'employee_id.min' => 'El empleado debe tener un ID mayor que 0.',
         ];
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Rules;
 
 use App\Contracts\RosterStore;
+use App\Data\Shifts;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -24,6 +25,15 @@ final class NoOverlap implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // TODO F04
+        // Get all existing shifts for this employee
+        $employeeShifts = $this->store->forEmployee($value);
+
+        // Check if the employee already has a shift on the same day
+        foreach ($employeeShifts as $empShift) {
+            if ($empShift['day'] === $this->day) {
+                $fail('El empleado ya tiene un turno asignado para este día.');
+                return;
+            }
+        }
     }
 }

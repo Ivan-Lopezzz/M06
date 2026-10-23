@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Rules;
 
 use App\Contracts\RosterStore;
+use App\Data\Shifts;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -33,6 +34,76 @@ final class MinimumRest implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // TODO F04
+        // Get all existing shifts for this employee
+        $employeeShifts = $this->store->forEmployee($value);
+
+        if (empty($employeeShifts)) {
+            return; // No previous shifts, so minimum rest is satisfied
+        }
+
+        // Find the most recent shift for this employee
+        $mostRecentShift = null;
+        $maxDayIndex = -1;
+
+        foreach ($employeeShifts as $empShift) {
+            $dayIndex = Shifts::dayIndex($empShift['day']);
+            if ($dayIndex > $maxDayIndex) {
+                $maxDayIndex = $dayIndex;
+                $mostRecentShift = $empShift;
+            }
+        }
+
+        // If no previous shift found, it's valid
+        if ($mostRecentShift === null) {
+            return;
+        }
+
+        // Get the day indices
+        $prevDayIndex = Shifts::dayIndex($mostRecentShift['day']);
+        $currentDayIndex = Shifts::dayIndex($this->day);
+
+        // If same day, it's already prevented by NoOverlap rule
+        if ($prevDayIndex === $currentDayIndex) {
+            return;
+        }
+
+        // Get shift start times in minutes
+        $shiftStartTimes = [
+            'manana' => 6 * 60,  // 06:00 = 360 minutes
+            'tarde' => 14 * 60,  // 14:00 = 840 minutes
+            'noche' => 22 * 60   // 22:00 = 1320 minutes
+        ];
+
+        // Calculate end time of previous shift
+        $prevShiftEndTime = $shiftStartTimes[$mostRecentShift['shift']] + Shifts::hours($mostRecentShift['shift']) * 60;
+
+        // Calculate start time of current shift
+        $currentShiftStartTime = $shiftStartTimes[$this->shift];
+
+        // Calculate hours between shifts
+        if ($currentDayIndex === $prevDayIndex + 1) {
+            // Same day difference - calculate from end of previous shift to start of current shift
+            $minutesOfRest = (24 * 60 - $prevShiftEndTime) + $currentShiftStartTime;
+
+            // Check for illegal transitions
+            $illegalTransitions = [
+                ['tarde', 'manana'],  // 8h gap
+                ['noche', 'manana'],  // 0h gap
+                ['noche', 'tarde']    // 8h gap
+            ];
+
+            foreach ($illegalTransitions as $transition) {
+                if ($mostRecentShift['shift'] === $transition[0] && $this->shift === $transition[1]) {
+                    $fail('La transición ilegal no cumple el descanso mínimo de 12 horas.');
+                    return;
+                }
+            }
+
+            // Check if minimum rest is satisfied
+            if ($minutesOfRest < self::MINIMUM_MINUTES) {
+                $fail('El descanso entre turnos es menor a las 12 horas requeridas.');
+                return;
+            }
+        }
     }
 }

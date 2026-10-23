@@ -5,47 +5,82 @@ declare(strict_types=1);
 namespace App\Stores;
 
 use App\Contracts\RosterStore;
+use App\Data\Shifts;
+use Illuminate\Support\Facades\Session;
 
 /**
- * F06 · TU implementación. El cuadrante vive en la sesión, así que lo que montes
- * sigue ahí al recargar la página.
+ * Implementación que guarda el cuadrante en la sesión de Laravel.
  *
- * Las cabeceras están puestas para que la clase cumpla el contrato desde el
- * primer momento; el cuerpo es tuyo. Borra los `throw` a medida que los escribas.
- *
- * F07 · Y este comentario también es tuyo: sustitúyelo por el PHPDoc de tu
- * implementación — dónde guarda el cuadrante, con qué clave de sesión y qué
- * devuelve cuando la sesión está vacía. Toma de modelo el de RosterStore.
+ * El cuadrante se almacena en la clave 'roster' de la sesión.
+ * Cuando la sesión está vacía, devuelve un cuadrante vacío (todos los turnos null).
  */
 final class SessionRosterStore implements RosterStore
 {
+    private const SESSION_KEY = 'roster';
+    private const TITLE_KEY = 'roster_title';
+
     public function all(): array
     {
-        throw new \LogicException('TODO F06: devuelve el cuadrante guardado en la sesión.');
+        $roster = Session::get(self::SESSION_KEY);
+
+        if ($roster === null) {
+            return $this->emptyWeek();
+        }
+
+        return $roster;
     }
 
     public function assign(string $day, string $shift, int $employeeId): void
     {
-        throw new \LogicException('TODO F06');
+        $roster = $this->all();
+        $roster[$day][$shift] = $employeeId;
+        Session::put(self::SESSION_KEY, $roster);
     }
 
     public function remove(string $day, string $shift): void
     {
-        throw new \LogicException('TODO F06');
+        $roster = $this->all();
+        $roster[$day][$shift] = null;
+        Session::put(self::SESSION_KEY, $roster);
     }
 
     public function forEmployee(int $employeeId): array
     {
-        throw new \LogicException('TODO F06');
+        $shifts = [];
+        $roster = $this->all();
+
+        foreach ($roster as $day => $dayShifts) {
+            foreach ($dayShifts as $shift => $id) {
+                if ($id === $employeeId) {
+                    $shifts[] = ['day' => $day, 'shift' => $shift];
+                }
+            }
+        }
+
+        return $shifts;
     }
 
     public function title(): string
     {
-        throw new \LogicException('TODO F06');
+        return Session::get(self::TITLE_KEY, '');
     }
 
     public function setTitle(string $title): void
     {
-        throw new \LogicException('TODO F06');
+        Session::put(self::TITLE_KEY, $title);
+    }
+
+    /** @return array<string, array<string, int|null>> */
+    private function emptyWeek(): array
+    {
+        $week = [];
+
+        foreach (Shifts::DAYS as $day) {
+            foreach (Shifts::names() as $shift) {
+                $week[$day][$shift] = null;
+            }
+        }
+
+        return $week;
     }
 }
